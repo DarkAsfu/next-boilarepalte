@@ -95,7 +95,7 @@ public/
 
 ## Styling and Fonts
 
-Global styles are defined in `app/globals.css`. The root layout loads the Geist font family through `next/font` and exposes the font variables to the application.
+Global styles are defined in `app/globals.css`. The root layout loads the Inter font family through `next/font` and exposes the font variables to the application. Geist Mono remains available for monospace text.
 
 ## Deployment
 
