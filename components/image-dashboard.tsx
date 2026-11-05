@@ -2,13 +2,38 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { DashboardImage, AnalysisStatus } from "@/types/dashboard";
+import type { AnalysisStatus, DashboardImage, ImageAnalysis } from "@/types/dashboard";
 
 function statusLabel(status: AnalysisStatus) {
   return status === "processing" ? "Analyzing" : status[0].toUpperCase() + status.slice(1);
 }
 
+const STORAGE_KEY = "image-analysis-dashboard-results";
+
+function readStoredAnalyses(): Record<string, ImageAnalysis> {
+  if (typeof window === "undefined") return {};
+  try {
+    return JSON.parse(window.localStorage.getItem(STORAGE_KEY) ?? "{}") as Record<string, ImageAnalysis>;
+  } catch {
+    return {};
+  }
+}
+
+function writeStoredAnalyses(value: Record<string, ImageAnalysis>) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
+  } catch {
+    // Ignore storage failures and keep in-memory state.
+  }
+}
+
+function mergeStoredAnalysis(image: DashboardImage, stored: Record<string, ImageAnalysis>) {
+  return image.analysis ? image : { ...image, analysis: stored[image.id] ?? null };
+}
+
 export default function ImageDashboard({ initialImages }: { initialImages: DashboardImage[] }) {
+  const [storedAnalyses, setStoredAnalyses] = useState<Record<string, ImageAnalysis>>({});
   const [images, setImages] = useState(initialImages);
   const [busy, setBusy] = useState<Record<string, boolean>>({});
   const queueRunning = useRef(false);
@@ -17,8 +42,26 @@ export default function ImageDashboard({ initialImages }: { initialImages: Dashb
     const response = await fetch("/api/images", { cache: "no-store" });
     if (!response.ok) return;
     const data = (await response.json()) as { images: DashboardImage[] };
-    setImages(data.images);
-  }, []);
+    const nextStored = { ...storedAnalyses };
+    for (const image of data.images) {
+      if (image.analysis) nextStored[image.id] = image.analysis;
+    }
+    setStoredAnalyses(nextStored);
+    writeStoredAnalyses(nextStored);
+    setImages(data.images.map((image) => mergeStoredAnalysis(image, nextStored)));
+  }, [storedAnalyses]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      const stored = readStoredAnalyses();
+      for (const image of initialImages) {
+        if (image.analysis) stored[image.id] = image.analysis;
+      }
+      setStoredAnalyses(stored);
+      writeStoredAnalyses(stored);
+      setImages((current) => current.map((image) => mergeStoredAnalysis(image, stored)));
+    });
+  }, [initialImages]);
 
   const processQueue = useCallback(async (imageId?: string) => {
     await fetch("/api/queue", {

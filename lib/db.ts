@@ -1,9 +1,31 @@
 import Database from "better-sqlite3";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 
-const dataDirectory = path.join(process.cwd(), ".data");
-const databasePath = path.join(dataDirectory, "image-analysis.db");
+function resolveDataDirectory(): string {
+  const configuredPath = process.env.DATABASE_PATH;
+  if (configuredPath) return path.dirname(configuredPath);
+
+  const localDirectory = path.join(process.cwd(), ".data");
+  try {
+    fs.mkdirSync(localDirectory, { recursive: true });
+    fs.accessSync(localDirectory, fs.constants.W_OK);
+    return localDirectory;
+  } catch {
+    const temporaryDirectory = path.join(os.tmpdir(), "image-analysis-data");
+    fs.mkdirSync(temporaryDirectory, { recursive: true });
+    return temporaryDirectory;
+  }
+}
+
+function resolveDatabasePath(): string {
+  if (process.env.DATABASE_PATH) return process.env.DATABASE_PATH;
+  return path.join(resolveDataDirectory(), "image-analysis.db");
+}
+
+const dataDirectory = resolveDataDirectory();
+const databasePath = resolveDatabasePath();
 
 let database: Database.Database | undefined;
 

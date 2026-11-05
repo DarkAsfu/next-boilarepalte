@@ -112,8 +112,28 @@ public/
 
 Global styles are defined in `app/globals.css`. The root layout loads the Inter font family through `next/font` and exposes the font variables to the application. Geist Mono remains available for monospace text.
 
-## Deployment
+## Architecture
 
+The application is a single Next.js App Router app with no separate backend or worker.
+
+- `app/page.tsx` renders the gallery. It calls `connection()` before loading data, so image loading, queue state, and analysis results are fetched fresh on each request.
+- `ImageDashboard` is a Client Component. It renders images, displays busy/progress states, queues analysis requests, polls `/api/queue`, and refreshes through `/api/images`.
+- `app/api/images/route.ts` fetches 20 Picsum images, upserts them into SQLite, and returns their metadata plus any existing analysis.
+- `app/api/analyses/route.ts` validates the image and enqueues it in the SQLite-backed analysis queue.
+- `app/api/queue/route.ts` claims one queued job, downloads the image, calls Anthropic, and marks the job completed or re-queued/failed.
+- `app/api/analyses/[imageId]/route.ts` returns the current analysis for one image.
+- `services/images.ts`, `services/queue.ts`, and `services/anthropic.ts` keep database, queue, and Anthropic concerns out of route handlers.
+
+## Implementation Approach
+
+- Images come from Picsum (`https://picsum.photos/v2/list?page=1&limit=20`).
+- SQLite via `better-sqlite3` stores images and analysis jobs in `.data/image-analysis.db`.
+- The queue uses claim/lease/completion/failure states so several clicks can be handled without losing jobs; a job that fails before 3 attempts is requeued.
+- Completed captions and tags are stored in SQLite and also remembered in browser `localStorage`, so refreshes in the same browser remain stable even across ephemeral serverless instances.
+- On platforms with a read-only application directory (such as Vercel), `lib/db.ts` uses `.data` when writable and falls back to a writable temporary directory.
+- The Anthropic key is read server-side only from `ANTHROPIC_API_KEY` or `NEXT_ANTHROPIC_API_KEY`.
+
+## Deployment
 Build and run the production application locally with:
 
 ```bash
