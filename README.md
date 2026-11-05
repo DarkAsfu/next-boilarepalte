@@ -28,6 +28,21 @@ npm run dev
 
 Open [http://localhost:3000](http://localhost:3000) in your browser.
 
+### Image analysis configuration
+
+Copy `.env.example` to `.env.local` and set `ANTHROPIC_API_KEY`. The key is
+read only by server-side route handlers and must not be prefixed with
+`NEXT_PUBLIC_`.
+
+The dashboard uses a local SQLite database at `.data/image-analysis.db`.
+Images are loaded from Picsum, while analysis requests are persisted in a
+database-backed queue. Clicking several images quickly creates independent
+jobs; the browser triggers bounded queue processing and polls for completion.
+Completed captions and tags remain available after a refresh.
+
+The default model is `claude-haiku-5-5`; override it with
+`ANTHROPIC_MODEL` if needed.
+
 ### Available scripts
 
 | Command | Description |
@@ -114,3 +129,15 @@ The application can be deployed to [Vercel](https://vercel.com/) or any platform
 - [Next.js App Router Documentation](https://nextjs.org/docs/app)
 - [Tailwind CSS Documentation](https://tailwindcss.com/docs)
 - [TypeScript Documentation](https://www.typescriptlang.org/docs/)
+
+
+
+
+AI Image Analysis Dashboard
+Task
+Create a gallery of at least 20 images from Picsum. Clicking an image should request an AI-generated caption and tags. The application should remain usable when several images are clicked in quick succession, show analysis progress, and retain completed results after a refresh.
+Constraints
+Use Next.js with TypeScript. Use Next.js server-side functionality for all backend logic; no dedicated backend or separate worker service.
+Use a database-backed queue. Do not use Redis, BullMQ, or an external queue service.
+Anthropic API access will be supplied separately. Keep the key on the server and out of source control.
+AI coding tools and documentation are allowed.
